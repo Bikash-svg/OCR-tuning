@@ -1,0 +1,33 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# PaddleOCR downloaded models (re-downloadable, large)
+.paddleocr/
+*.pdmodel
+*.pdiparams
+*.onnx
+
+# Sensitive — NEVER commit
+screenshots/
+baseline_output.json
+*.jpg
+*.jpeg
+*.png
+cropped/
+train_data/
+rec_gt_train.txt
+rec_gt_val.txt
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Env
+.env
