@@ -74,3 +74,22 @@ Repo: github.com/Bikash-svg/OCR-tuning (private)
 - [ ] Add `₹` to character dictionary if missing
 - [ ] Fine-tune PP-OCRv6_medium_rec
 - [ ] Export to ONNX, verify mobile integration
+
+
+
+### Stage 1 result — 2026-11-05
+
+**Raw: 7/13 (54%) → After confidence-gated fix: 11/13 (85%)**
+
+Fix: `fix_amount(text, conf)` prepends `₹` when a pure-digit amount has conf ≥ 0.90.
+
+Confidence is a perfect separator:
+- All rupee_dropped: conf ≥ 0.94
+- All correct: conf ≤ 0.81
+- Zero overlap across 13 samples.
+
+Ruled out: dictionary (₹ present in v5+v6), threshold filtering, model choice, detection split, upscaling, cropping-before-OCR, fine-tuning.
+
+Remaining failures (2): navi-3 (`マ3`), navi-4 (`7ッ` misread 4 as 7). Both Navi, both garbage-region.
+
+Decision: full-image OCR + confidence-gated post-process ships. No fine-tuning needed for this failure class.
