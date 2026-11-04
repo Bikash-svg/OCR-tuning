@@ -48,10 +48,18 @@ Repo: github.com/Bikash-svg/OCR-tuning (private)
 
 ## Measurements / Results
 
+Column definitions:
+- **Detection rate** = an amount candidate (any number, ₹ or not) appeared in the OCR output. `NONE` = nothing found.
+- **Recognition rate** = amount was correct after applying the fix column for that row.
+
 | Date | Model | Dataset | Detection rate | Recognition rate | Dominant error | Notes |
 |---|---|---|---|---|---|---|
 | 2026-11-04 | PP-OCRv6_medium (stock) | `test_dummy.png` (synthetic) | 1/1 | 1/1 | none | Clean synthetic, conf=1.00 |
-| 2026-11-04 | PP-OCRv6_medium (stock) | 20–30 real screenshots | TBD | TBD | TBD | Pending collection |
+| 2026-11-05 | PP-OCRv6_medium (stock) | 13 real (GPay ×7, Navi ×6) | 11/13 | 7/13 | rupee_dropped (4) + not_detected (2) | Raw baseline. Confidence separator identified: dropped ₹ = conf ≥0.94, correct = conf ≤0.81, zero overlap across 13 samples. |
+| 2026-11-05 | PP-OCRv6 + confidence fix (₹ prepend when conf ≥0.90) | 13 real | 11/13 | 11/13 | not_detected (2) | Rescued 4 rupee_dropped: gpay-10, gpay-2, gpay-3, navi-2. navi-3 and navi-4 still NONE. |
+| 2026-11-05 | Hybrid: colour → conf fix → B&W fallback | 13 real | 12/13 | **12/13 (92%)** | manual_entry (1: navi-3) | B&W fallback rescued navi-4 (colour `7ッ` conf 0.53 → greyscale `₹4` conf 0.66). **Stage 1 final.** |
+
+
 
 ---
 
@@ -93,3 +101,23 @@ Ruled out: dictionary (₹ present in v5+v6), threshold filtering, model choice,
 Remaining failures (2): navi-3 (`マ3`), navi-4 (`7ッ` misread 4 as 7). Both Navi, both garbage-region.
 
 Decision: full-image OCR + confidence-gated post-process ships. No fine-tuning needed for this failure class.
+
+### Stage 1 final summary - 2026-11-05
+
+Raw → final: **7/13 (54%) → 12/13 (92%)** with zero training.
+
+Three additions, each justified by a targeted measurement:
+
+1. **Full-image OCR (not crops)** — crop test on `gpay-2` showed cropping destroys ₹ context. Crop of the amount box read `'2'` at 1.00 on a screenshot that read `'₹2'` at 0.79 in full image.
+2. **Confidence-gated ₹ prepend** — `fix_amount(text, conf)` prepends `₹` when a pure-digit amount has conf ≥ 0.90. The threshold is empirical: dropped-₹ cases all ≥ 0.94, correct cases all ≤ 0.81, no overlap.
+3. **Greyscale fallback** — only runs when colour fails. `baseline_bw_test.py` on the 13-image set: B&W FIXED 1 (navi-4), LOST 0, NO CHANGE 12. Colour is image-specific, not systematic — hybrid preserves the best of both.
+
+Ruled out by measurement (full trail in Issues and Fixes):
+- Dictionary missing ₹ (present in both PP-OCRv5 and PP-OCRv6 dictionaries — verified via `grep` on `inference.yml`)
+- Threshold filtering (threshold 0.2 → no change in output)
+- Model choice (PP-OCRv5 and PP-OCRv6 both fail the same way on gpay-2)
+- Detection split (box `[334, 536, 484, 668]` includes the ₹ on gpay-2)
+- Upscaling (4× and 6× upscale → detector returns 0 results; 8× → OOM)
+- Fine-tuning (model reads ₹ on full-image correctly on 5/6 GPay screenshots; failure is capture-state, not capability)
+
+**Open gap before Stage 2:** only 2 apps tested. Need 3–5 PhonePe + 3–5 Paytm screenshots to confirm the pipeline generalizes before committing to the React Native integration.
